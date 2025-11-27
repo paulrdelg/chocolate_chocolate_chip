@@ -16,6 +16,10 @@ use hyper_util::rt::TokioIo;
 use hyper_util::rt::TokioExecutor;
 //use hyper_util::support::TokioIo;
 use tokio::net::TcpListener;
+use tracing;
+use tracing_subscriber;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
 
 fn get_index() -> Bytes {
     let path = "src/client/index.html";
@@ -28,24 +32,68 @@ fn get_index() -> Bytes {
     return data;
 }
 
+fn get_index_response() -> hyper::Response<Full<Bytes>> {
+    let data = get_index();
+    let full = Full::new(data);
+
+    hyper::Response::new(full)
+}
+
+fn get_css() -> Bytes {
+    let path = "src/client/style.css";
+    let dat_res = fs::read(path);
+    let dat = dat_res.unwrap();
+    let data = Bytes::from(dat);
+
+    println!("serving css");
+
+    return data;
+}
+
+fn get_css_response() -> hyper::Response<Full<Bytes>> {
+    let data = get_css();
+    let full = Full::new(data);
+
+    hyper::Response::new(full)
+}
+
+fn get_frontendapp() -> Bytes {
+    let path = "src/client/app.js";
+    let dat_res = fs::read(path);
+    let dat = dat_res.unwrap();
+    let data = Bytes::from(dat);
+
+    println!("serving frontend app");
+
+    return data;
+}
+
+fn get_app_response() -> hyper::Response<Full<Bytes>> {
+    let data = get_frontendapp();
+    let full = Full::new(data);
+
+    hyper::Response::new(full)
+}
+
 fn simple_text(status: hyper::StatusCode, text: &str) -> hyper::Response<Full<Bytes>> {
     let mut res = hyper::Response::new(Full::from(Bytes::from(text.to_owned())));
     *res.status_mut() = status;
-    res.headers_mut().insert(header::CONTENT_TYPE, header::HeaderValue::from_static("text/plain; charset-utf-8"));
+    let hv = header::HeaderValue::from_static("text/plain; charset-utf-8");
+    res.headers_mut().insert(header::CONTENT_TYPE, hv);
 
     return res;
 }
 
 async fn handler(req: hyper::Request<body::Incoming>) -> Result<hyper::Response<Full<Bytes>>, Infallible> {
-    let data = get_index();
-    let full = Full::new(data);
-
     let uri = req.uri();
     let path = uri.path();
 
+    println!("request: {path}");
+
     let resp = match path {
-        "/" => hyper::Response::new(full),
-        "/test" => hyper::Response::new(full),
+        "/" => get_index_response(),
+        "/app.js" => get_app_response(),
+        "/style.css" => get_css_response(),
         _ => simple_text(hyper::StatusCode::NOT_FOUND, "not foundeded"),
     };
 
@@ -71,6 +119,12 @@ fn get_socket_addr() -> SocketAddr {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("Hello, world!");
+
+    let t_env = tracing_subscriber::EnvFilter::from_default_env();
+    tracing_subscriber::registry()
+        .with(t_env)
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     let addr = get_socket_addr();
 
