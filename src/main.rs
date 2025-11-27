@@ -1,7 +1,8 @@
 
 use std::convert::Infallible;
 use std::fs;
-use std::net::Ipv4Addr;
+use std::io;
+use std::net;
 use std::net::SocketAddr;
 
 use http_body_util::Full;
@@ -27,7 +28,7 @@ fn get_index() -> Bytes {
     let dat = dat_res.unwrap();
     let data = Bytes::from(dat);
 
-    println!("serving index");
+    tracing::info!("serving index.html");
 
     return data;
 }
@@ -39,37 +40,55 @@ fn get_index_response() -> hyper::Response<Full<Bytes>> {
     hyper::Response::new(full)
 }
 
-fn get_css() -> Bytes {
+fn get_stylecss() -> Bytes {
     let path = "src/client/style.css";
     let dat_res = fs::read(path);
     let dat = dat_res.unwrap();
     let data = Bytes::from(dat);
 
-    println!("serving css");
+    tracing::info!("serving style.css");
 
     return data;
 }
 
-fn get_css_response() -> hyper::Response<Full<Bytes>> {
-    let data = get_css();
+fn get_stylecss_response() -> hyper::Response<Full<Bytes>> {
+    let data = get_stylecss();
     let full = Full::new(data);
 
     hyper::Response::new(full)
 }
 
-fn get_frontendapp() -> Bytes {
+fn get_appjs() -> Bytes {
     let path = "src/client/app.js";
     let dat_res = fs::read(path);
     let dat = dat_res.unwrap();
     let data = Bytes::from(dat);
 
-    println!("serving frontend app");
+    tracing::info!("serving app.js");
 
     return data;
 }
 
-fn get_app_response() -> hyper::Response<Full<Bytes>> {
-    let data = get_frontendapp();
+fn get_appjs_response() -> hyper::Response<Full<Bytes>> {
+    let data = get_appjs();
+    let full = Full::new(data);
+
+    hyper::Response::new(full)
+}
+
+fn get_favicon() -> Bytes {
+    let path = "src/client/favicon.ico";
+    let dat_res = fs::read(path);
+    let dat = dat_res.unwrap();
+    let data = Bytes::from(dat);
+
+    tracing::info!("serving favicon.ico");
+
+    return data;
+}
+
+fn get_favicon_response() -> hyper::Response<Full<Bytes>> {
+    let data = get_favicon();
     let full = Full::new(data);
 
     hyper::Response::new(full)
@@ -88,21 +107,22 @@ async fn handler(req: hyper::Request<body::Incoming>) -> Result<hyper::Response<
     let uri = req.uri();
     let path = uri.path();
 
-    println!("request: {path}");
+    tracing::info!("request: {path}");
 
     let resp = match path {
         "/" => get_index_response(),
-        "/app.js" => get_app_response(),
-        "/style.css" => get_css_response(),
+        "/app.js" => get_appjs_response(),
+        "/style.css" => get_stylecss_response(),
+        "/favicon.ico" => get_favicon_response(),
         _ => simple_text(hyper::StatusCode::NOT_FOUND, "not foundeded"),
     };
 
     Ok(resp)
 }
 
-fn get_ipv4_addr() -> Ipv4Addr {
+fn get_ipv4_addr() -> net::Ipv4Addr {
     //let ip = [127, 0, 0, 1];
-    let ip = Ipv4Addr::LOCALHOST;
+    let ip = net::Ipv4Addr::LOCALHOST;
 
     return ip;
 }
@@ -120,10 +140,11 @@ fn get_socket_addr() -> SocketAddr {
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("Hello, world!");
 
-    let t_env = tracing_subscriber::EnvFilter::from_default_env();
+    //let t_env = tracing_subscriber::EnvFilter::from_default_env();
+    let t_env = tracing_subscriber::EnvFilter::new("info");
     tracing_subscriber::registry()
         .with(t_env)
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_writer(io::stdout))
         .init();
 
     let addr = get_socket_addr();
@@ -144,7 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             let conn = builder.serve_connection(io, svc);
 
             if let Err(err) = conn.await {
-                eprintln!("connection error from {peer}: {err}");
+                tracing::error!("connection error from {peer}: {err}");
             }
         });
     }
