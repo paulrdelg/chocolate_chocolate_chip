@@ -11,4 +11,14 @@ function main() {
 
 function main2() {
     console.log("test2 ready");
+
+    let evtSource = new EventSource("/events");
+
+    evtSource.onmessage = (event) => {
+        console.log("received:", event.data);
+    };
+
+    evtSource.onerror = (err) => {
+        console.error("SSE error or connection closed:", err);
+    }
 }
