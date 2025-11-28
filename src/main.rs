@@ -5,7 +5,8 @@ use std::io;
 use std::net;
 use std::net::SocketAddr;
 
-use http_body_util::Full;
+use http_body_util;
+use http_body_util::BodyExt;
 use hyper::body;
 use hyper::body::Bytes;
 use hyper::header;
@@ -33,11 +34,12 @@ fn get_index() -> Bytes {
     return data;
 }
 
-fn get_index_response() -> hyper::Response<Full<Bytes>> {
+fn get_index_response() -> hyper::Response<http_body_util::combinators::BoxBody<Bytes, Infallible>> {
     let data = get_index();
-    let full = Full::new(data);
+    let full = http_body_util::Full::new(data);
+    let boxed = full.boxed();
 
-    hyper::Response::new(full)
+    hyper::Response::new(boxed)
 }
 
 fn get_stylecss() -> Bytes {
@@ -51,11 +53,12 @@ fn get_stylecss() -> Bytes {
     return data;
 }
 
-fn get_stylecss_response() -> hyper::Response<Full<Bytes>> {
+fn get_stylecss_response() -> hyper::Response<http_body_util::combinators::BoxBody<Bytes, Infallible>> {
     let data = get_stylecss();
-    let full = Full::new(data);
+    let full = http_body_util::Full::new(data);
+    let boxed = full.boxed();
 
-    hyper::Response::new(full)
+    hyper::Response::new(boxed)
 }
 
 fn get_appjs() -> Bytes {
@@ -69,11 +72,12 @@ fn get_appjs() -> Bytes {
     return data;
 }
 
-fn get_appjs_response() -> hyper::Response<Full<Bytes>> {
+fn get_appjs_response() -> hyper::Response<http_body_util::combinators::BoxBody<Bytes, Infallible>> {
     let data = get_appjs();
-    let full = Full::new(data);
+    let full = http_body_util::Full::new(data);
+    let boxed = full.boxed();
 
-    hyper::Response::new(full)
+    hyper::Response::new(boxed)
 }
 
 fn get_favicon() -> Bytes {
@@ -87,15 +91,38 @@ fn get_favicon() -> Bytes {
     return data;
 }
 
-fn get_favicon_response() -> hyper::Response<Full<Bytes>> {
+fn get_favicon_response() -> hyper::Response<http_body_util::combinators::BoxBody<Bytes, Infallible>> {
     let data = get_favicon();
-    let full = Full::new(data);
+    let full = http_body_util::Full::new(data);
+    let boxed = full.boxed();
 
-    hyper::Response::new(full)
+    hyper::Response::new(boxed)
 }
 
-fn simple_text(status: hyper::StatusCode, text: &str) -> hyper::Response<Full<Bytes>> {
-    let mut res = hyper::Response::new(Full::from(Bytes::from(text.to_owned())));
+fn get_events() -> Bytes {
+    let path = "src/client/favicon.ico";
+    let dat_res = fs::read(path);
+    let dat = dat_res.unwrap();
+    let data = Bytes::from(dat);
+
+    tracing::info!("serving events");
+
+    return data;
+}
+
+fn get_events_response() -> hyper::Response<http_body_util::combinators::BoxBody<Bytes, Infallible>> {
+    let data = get_events();
+    let full = http_body_util::Full::new(data);
+    let boxed = full.boxed();
+
+    hyper::Response::new(boxed)
+}
+
+fn simple_text(status: hyper::StatusCode, text: &str) -> hyper::Response<http_body_util::combinators::BoxBody<Bytes, Infallible>> {
+    let dat = Bytes::from(text.to_owned());
+    let full = http_body_util::Full::from(dat);
+    let boxed = full.boxed();
+    let mut res = hyper::Response::new(boxed);
     *res.status_mut() = status;
     let hv = header::HeaderValue::from_static("text/plain; charset-utf-8");
     res.headers_mut().insert(header::CONTENT_TYPE, hv);
@@ -103,7 +130,7 @@ fn simple_text(status: hyper::StatusCode, text: &str) -> hyper::Response<Full<By
     return res;
 }
 
-async fn handler(req: hyper::Request<body::Incoming>) -> Result<hyper::Response<Full<Bytes>>, Infallible> {
+async fn handler(req: hyper::Request<body::Incoming>) -> Result<hyper::Response<http_body_util::combinators::BoxBody<Bytes, Infallible>>, Infallible> {
     let uri = req.uri();
     let path = uri.path();
 
@@ -114,6 +141,7 @@ async fn handler(req: hyper::Request<body::Incoming>) -> Result<hyper::Response<
         "/app.js" => get_appjs_response(),
         "/style.css" => get_stylecss_response(),
         "/favicon.ico" => get_favicon_response(),
+        "/events" => get_events_response(),
         _ => simple_text(hyper::StatusCode::NOT_FOUND, "not foundeded"),
     };
 
