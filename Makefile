@@ -15,3 +15,6 @@ run:
 
 startup:
 	./scripts/startup.sh
+
+compile:
+	./scripts/default_compile.sh
