@@ -1,5 +1,7 @@
 
-.PHONY: clean run
+.PHONY: all clean run startup
+
+all: startup
 
 main.exe:
 	echo "test"
@@ -10,3 +12,6 @@ clean:
 
 run:
 	cargo run
+
+startup:
+	./scripts/startup.sh
